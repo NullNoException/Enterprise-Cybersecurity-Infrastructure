@@ -1,0 +1,37 @@
+# Grafana LDAP Configuration
+[[servers]]
+host = "openldap"
+port = 389
+use_ssl = false
+start_tls = false
+ssl_skip_verify = true
+
+bind_dn = "cn=admin,dc=cyberlab,dc=local"
+bind_password = 'admin'
+
+search_filter = "(cn=%s)"
+search_base_dns = ["dc=cyberlab,dc=local"]
+
+[servers.attributes]
+name = "givenName"
+surname = "sn"
+username = "cn"
+member_of = "memberOf"
+email = "mail"
+
+# Group mappings
+[[servers.group_mappings]]
+group_dn = "cn=admins,ou=groups,dc=cyberlab,dc=local"
+org_role = "Admin"
+
+[[servers.group_mappings]]
+group_dn = "cn=editors,ou=groups,dc=cyberlab,dc=local"
+org_role = "Editor"
+
+[[servers.group_mappings]]
+group_dn = "cn=viewers,ou=groups,dc=cyberlab,dc=local"
+org_role = "Viewer"
+
+[[servers.group_mappings]]
+group_dn = "*"
+org_role = "Viewer"

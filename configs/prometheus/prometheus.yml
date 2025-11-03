@@ -1,0 +1,101 @@
+# Prometheus Configuration
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'cyberlab'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Load rules
+rule_files:
+  - "/etc/prometheus/alerts/*.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+
+  # Node Exporter - System metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          service: 'node-exporter'
+          type: 'system-metrics'
+
+  # cAdvisor - Container metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+        labels:
+          service: 'cadvisor'
+          type: 'container-metrics'
+
+  # Elasticsearch
+  - job_name: 'elasticsearch'
+    static_configs:
+      - targets: ['elasticsearch:9200']
+        labels:
+          service: 'elasticsearch'
+          layer: 'security'
+
+  # Nginx
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:80']
+        labels:
+          service: 'nginx'
+          layer: 'dmz'
+
+  # PostgreSQL
+  - job_name: 'postgresql'
+    static_configs:
+      - targets: ['postgresql:5432']
+        labels:
+          service: 'postgresql'
+          layer: 'internal'
+
+  # Wazuh
+  - job_name: 'wazuh'
+    static_configs:
+      - targets: ['wazuh:55000']
+        labels:
+          service: 'wazuh'
+          layer: 'security'
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true
+
+  # Grafana
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+        labels:
+          service: 'grafana'
+          layer: 'management'
+
+  # OpenLDAP (if exporter available)
+  - job_name: 'openldap'
+    static_configs:
+      - targets: ['openldap:389']
+        labels:
+          service: 'openldap'
+          layer: 'internal'
+
+  # Rocket.Chat
+  - job_name: 'rocketchat'
+    static_configs:
+      - targets: ['rocketchat:3000']
+        labels:
+          service: 'rocketchat'
+          layer: 'internal'

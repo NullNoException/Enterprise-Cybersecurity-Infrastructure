@@ -1,0 +1,43 @@
+# Environment and secrets
+.env
+*.pem
+*.key
+*.crt
+*.p12
+*.jks
+
+# Data directories
+data/
+volumes/
+
+# Logs
+*.log
+logs/
+
+# Docker
+.docker/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.bak
+*.backup
+backup-*/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Certificates (except templates)
+configs/*/certs/*
+!configs/*/certs/.gitkeep
