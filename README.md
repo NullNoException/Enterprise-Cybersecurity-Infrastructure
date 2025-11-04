@@ -13,11 +13,11 @@ This project provides a complete on-premises cybersecurity infrastructure deploy
 ## Architecture Overview
 
 ### Network Layers
-1. **External Network** (172.20.0.0/24) - VPN entry point
-2. **DMZ Network** (172.20.10.0/24) - Public-facing services
-3. **Internal Network** (172.20.20.0/24) - Protected internal services
-4. **Security Network** (172.20.30.0/24) - Security tools and monitoring
-5. **Management Network** (172.20.40.0/24) - Administration and monitoring
+1. **External Network** (172.25.0.0/24) - VPN entry point
+2. **DMZ Network** (172.25.10.0/24) - Public-facing services
+3. **Internal Network** (172.25.20.0/24) - Protected internal services
+4. **Security Network** (172.25.30.0/24) - Security tools and monitoring
+5. **Management Network** (172.25.40.0/24) - Administration and monitoring
 
 ### Component Matrix
 

@@ -207,7 +207,7 @@ index.number_of_shards: 1
 index.number_of_replicas: 0
 
 # Indexing buffer
-indices.memory.index_buffer_size: 20%
+# indices.memory.index_buffer_size: 20%
 
 # Merge settings for better performance
 index.merge.scheduler.max_thread_count: 1

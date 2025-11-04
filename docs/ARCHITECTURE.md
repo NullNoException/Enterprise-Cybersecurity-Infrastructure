@@ -32,7 +32,7 @@ External → DMZ → Internal
 
 ### Network Segments
 
-#### 1. External Network (172.20.0.0/24)
+#### 1. External Network (172.25.0.0/24)
 **Purpose**: Entry point for external access
 
 **Components**:
@@ -48,13 +48,13 @@ External → DMZ → Internal
 - All traffic inspected by firewall
 - Rate limiting on VPN endpoints
 
-#### 2. DMZ Network (172.20.10.0/24)
+#### 2. DMZ Network (172.25.10.0/24)
 **Purpose**: Host public-facing services
 
 **Components**:
-- Nginx Reverse Proxy (172.20.10.10)
-- T-Pot Honeypot (172.20.10.50)
-- OPNsense DMZ interface (172.20.10.1)
+- Nginx Reverse Proxy (172.25.10.10)
+- T-Pot Honeypot (172.25.10.50)
+- OPNsense DMZ interface (172.25.10.1)
 
 **Traffic Flow**:
 - Inbound: From External network (restricted)
@@ -67,16 +67,16 @@ External → DMZ → Internal
 - All services behind reverse proxy
 - Honeypot for threat intelligence
 
-#### 3. Internal Network (172.20.20.0/24)
+#### 3. Internal Network (172.25.20.0/24)
 **Purpose**: Protected internal services and data
 
 **Components**:
-- PostgreSQL Database (172.20.20.30)
-- OpenLDAP Directory (172.20.20.40)
-- Rocket.Chat (172.20.20.50)
-- MongoDB (172.20.20.51)
-- Wazuh Manager (172.20.20.60)
-- FreeRADIUS (172.20.20.70)
+- PostgreSQL Database (172.25.20.30)
+- OpenLDAP Directory (172.25.20.40)
+- Rocket.Chat (172.25.20.50)
+- MongoDB (172.25.20.51)
+- Wazuh Manager (172.25.20.60)
+- FreeRADIUS (172.25.20.70)
 
 **Traffic Flow**:
 - Inbound: From DMZ (application traffic only)
@@ -89,21 +89,21 @@ External → DMZ → Internal
 - Network isolation from DMZ
 - All access logged
 
-#### 4. Security Network (172.20.30.0/24)
+#### 4. Security Network (172.25.30.0/24)
 **Purpose**: Security monitoring and analysis
 
 **Components**:
-- Elasticsearch (172.20.30.10)
-- Kibana (172.20.30.11)
-- Wazuh Manager (172.20.30.20)
-- Wazuh Dashboard (172.20.30.21)
-- Filebeat (172.20.30.22)
-- Logstash (172.20.30.30)
-- TheHive (172.20.30.40)
-- Cortex (172.20.30.41)
-- AI Analyzer (172.20.30.50)
-- Ollama (172.20.30.51)
-- Prometheus (172.20.30.60)
+- Elasticsearch (172.25.30.10)
+- Kibana (172.25.30.11)
+- Wazuh Manager (172.25.30.20)
+- Wazuh Dashboard (172.25.30.21)
+- Filebeat (172.25.30.22)
+- Logstash (172.25.30.30)
+- TheHive (172.25.30.40)
+- Cortex (172.25.30.41)
+- AI Analyzer (172.25.30.50)
+- Ollama (172.25.30.51)
+- Prometheus (172.25.30.60)
 
 **Traffic Flow**:
 - Inbound: Logs from all networks
@@ -116,16 +116,16 @@ External → DMZ → Internal
 - Tamper-evident log storage
 - Isolated from production traffic
 
-#### 5. Management Network (172.20.40.0/24)
+#### 5. Management Network (172.25.40.0/24)
 **Purpose**: Administrative and monitoring interfaces
 
 **Components**:
-- Prometheus (172.20.40.10)
-- Grafana (172.20.40.11)
-- FreeRADIUS (172.20.40.20)
-- Backup Service (172.20.40.30)
-- Node Exporter (172.20.40.40)
-- cAdvisor (172.20.40.41)
+- Prometheus (172.25.40.10)
+- Grafana (172.25.40.11)
+- FreeRADIUS (172.25.40.20)
+- Backup Service (172.25.40.30)
+- Node Exporter (172.25.40.40)
+- cAdvisor (172.25.40.41)
 
 **Traffic Flow**:
 - Inbound: Metrics from all networks

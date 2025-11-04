@@ -5,39 +5,40 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.20.0.0/24
-          gateway: 172.20.0.1
+        - subnet: 172.25.0.0/24
+          gateway: 172.25.0.1
 
   dmz_net:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.20.10.0/24
-          gateway: 172.20.10.1
+        - subnet: 172.25.10.0/24
+          gateway: 172.25.10.1
 
   internal_net:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.20.20.0/24
-          gateway: 172.20.20.1
+        - subnet: 172.25.20.0/24
+          gateway: 172.25.20.1
 
   security_net:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.20.30.0/24
-          gateway: 172.20.30.1
+        - subnet: 172.25.30.0/24
+          gateway: 172.25.30.1
 
   management_net:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.20.40.0/24
-          gateway: 172.20.40.1
+        - subnet: 172.25.40.0/24
+          gateway: 172.25.40.1
 
 volumes:
   elasticsearch_data:
+  wazuh_indexer_data:
   wazuh_api_configuration:
   wazuh_etc:
   wazuh_logs:
@@ -78,13 +79,13 @@ services:
     privileged: true
     networks:
       external_net:
-        ipv4_address: 172.20.0.10
+        ipv4_address: 172.25.0.10
       dmz_net:
-        ipv4_address: 172.20.10.1
+        ipv4_address: 172.25.10.1
       internal_net:
-        ipv4_address: 172.20.20.1
+        ipv4_address: 172.25.20.1
       security_net:
-        ipv4_address: 172.20.30.1
+        ipv4_address: 172.25.30.1
     ports:
       - "8443:443" # Web UI
       - "8080:80" # HTTP redirect
@@ -107,7 +108,7 @@ services:
     hostname: wireguard
     networks:
       external_net:
-        ipv4_address: 172.20.0.20
+        ipv4_address: 172.25.0.20
     ports:
       - "51820:51820/udp"
     volumes:
@@ -134,7 +135,7 @@ services:
   #   hostname: openvpn
   #   networks:
   #     external_net:
-  #       ipv4_address: 172.20.0.21
+  #       ipv4_address: 172.25.0.21
   #   ports:
   #     - "1194:1194/udp"
   #   volumes:
@@ -155,9 +156,9 @@ services:
     hostname: nginx
     networks:
       dmz_net:
-        ipv4_address: 172.20.10.10
+        ipv4_address: 172.25.10.10
       internal_net:
-        ipv4_address: 172.20.20.10
+        ipv4_address: 172.25.20.10
     ports:
       - "80:80"
       - "443:443"
@@ -176,7 +177,7 @@ services:
     logging:
       driver: syslog
       options:
-        syslog-address: "udp://172.20.30.30:514"
+        syslog-address: "udp://172.25.30.30:514"
         tag: "nginx"
 
   # Honeypot - T-Pot
@@ -187,7 +188,7 @@ services:
   # hostname: tpot
   # networks:
   #   dmz_net:
-  #     ipv4_address: 172.20.10.50
+  #     ipv4_address: 172.25.10.50
   # ports:
   #   - "64295:64295" # SSH
   #   - "64297:64297" # Web UI
@@ -202,7 +203,7 @@ services:
   # logging:
   #   driver: syslog
   #   options:
-  #     syslog-address: "udp://172.20.30.30:514"
+  #     syslog-address: "udp://172.25.30.30:514"
   #     tag: "tpot"
 
   # ============================================================================
@@ -215,7 +216,7 @@ services:
     hostname: postgresql
     networks:
       internal_net:
-        ipv4_address: 172.20.20.30
+        ipv4_address: 172.25.20.30
     environment:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-SecureP@ssw0rd}
       - POSTGRES_USER=postgres
@@ -230,7 +231,7 @@ services:
     logging:
       driver: syslog
       options:
-        syslog-address: "udp://172.20.30.30:514"
+        syslog-address: "udp://172.25.30.30:514"
         tag: "postgresql"
 
   # OpenLDAP
@@ -240,7 +241,7 @@ services:
     hostname: openldap
     networks:
       internal_net:
-        ipv4_address: 172.20.20.40
+        ipv4_address: 172.25.20.40
     environment:
       - LDAP_ORGANISATION=${LDAP_ORGANISATION:-CyberLab}
       - LDAP_DOMAIN=${LDAP_DOMAIN:-cyberlab.local}
@@ -266,7 +267,7 @@ services:
     hostname: phpldapadmin
     networks:
       internal_net:
-        ipv4_address: 172.20.20.41
+        ipv4_address: 172.25.20.41
     environment:
       - PHPLDAPADMIN_LDAP_HOSTS=openldap
       - PHPLDAPADMIN_HTTPS=false
@@ -279,42 +280,42 @@ services:
     cpus: 0.2
 
   # Rocket.Chat (Communication)
-  rocketchat:
-    image: rocket.chat:latest
-    container_name: rocketchat
-    hostname: rocketchat
-    networks:
-      internal_net:
-        ipv4_address: 172.20.20.50
-    environment:
-      - MONGO_URL=mongodb://mongodb:27017/rocketchat
-      - MONGO_OPLOG_URL=mongodb://mongodb:27017/local
-      - ROOT_URL=http://localhost:3100
-      - PORT=3000
-      - ADMIN_USERNAME=admin
-      - ADMIN_PASS=${ROCKETCHAT_PASSWORD:-admin}
-      - ADMIN_EMAIL=admin@cyberlab.local
-    ports:
-      - "3100:3000"
-    depends_on:
-      - mongodb
-    restart: unless-stopped
-    mem_limit: 1g
-    cpus: 0.5
+  # rocketchat:
+  #   image: rocket.chat:latest
+  #   container_name: rocketchat
+  #   hostname: rocketchat
+  #   networks:
+  #     internal_net:
+  #       ipv4_address: 172.25.20.50
+  #   environment:
+  #     - MONGO_URL=mongodb://mongodb:27017/rocketchat
+  #     - MONGO_OPLOG_URL=mongodb://mongodb:27017/local
+  #     - ROOT_URL=http://localhost:3100
+  #     - PORT=3000
+  #     - ADMIN_USERNAME=admin
+  #     - ADMIN_PASS=${ROCKETCHAT_PASSWORD:-admin}
+  #     - ADMIN_EMAIL=admin@cyberlab.local
+  #   ports:
+  #     - "3100:3000"
+  #   depends_on:
+  #     - mongodb
+  #   restart: unless-stopped
+  #   mem_limit: 1g
+  #   cpus: 0.5
 
-  mongodb:
-    image: mongo:5
-    container_name: mongodb
-    hostname: mongodb
-    networks:
-      internal_net:
-        ipv4_address: 172.20.20.51
-    volumes:
-      - rocketchat_data:/data/db
-    command: mongod --oplogSize 128 --replSet rs0
-    restart: unless-stopped
-    mem_limit: 1g
-    cpus: 0.3
+  # mongodb:
+  #   image: mongo:5
+  #   container_name: mongodb
+  #   hostname: mongodb
+  #   networks:
+  #     internal_net:
+  #       ipv4_address: 172.25.20.51
+  #   volumes:
+  #     - rocketchat_data:/data/db
+  #   command: mongod --oplogSize 128 --replSet rs0
+  #   restart: unless-stopped
+  #   mem_limit: 1g
+  #   cpus: 0.3
 
   # ============================================================================
   # SECURITY NETWORK - MONITORING & DEFENSE
@@ -327,7 +328,7 @@ services:
     hostname: elasticsearch
     networks:
       security_net:
-        ipv4_address: 172.20.30.10
+        ipv4_address: 172.25.30.10
     environment:
       - node.name=elasticsearch
       - cluster.name=cyberlab-cluster
@@ -360,7 +361,7 @@ services:
   #   hostname: kibana
   #   networks:
   #     security_net:
-  #       ipv4_address: 172.20.30.11
+  #       ipv4_address: 172.25.30.11
   #   environment:
   #     - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
   #     - ELASTICSEARCH_USERNAME=elastic
@@ -377,6 +378,37 @@ services:
   #   mem_limit: 1g
   #   cpus: 0.5
 
+  # Wazuh Indexer (OpenSearch-based)
+  wazuh-indexer:
+    image: wazuh/wazuh-indexer:4.7.0
+    container_name: wazuh-indexer
+    hostname: wazuh-indexer
+    networks:
+      security_net:
+        ipv4_address: 172.25.30.15
+    environment:
+      - "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"
+      - "bootstrap.memory_lock=true"
+      - "discovery.type=single-node"
+      - "network.host=0.0.0.0"
+      - "plugins.security.ssl.http.enabled=false"
+      - "plugins.security.disabled=true"
+      - "compatibility.override_main_response_version=true"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - wazuh_indexer_data:/var/lib/wazuh-indexer
+    ports:
+      - "9201:9200"
+    restart: unless-stopped
+    mem_limit: 2g
+    cpus: 0.5
+
   # Wazuh Manager
   wazuh:
     image: wazuh/wazuh-manager:4.7.0
@@ -384,17 +416,17 @@ services:
     hostname: wazuh-manager
     networks:
       security_net:
-        ipv4_address: 172.20.30.20
+        ipv4_address: 172.25.30.20
       internal_net:
-        ipv4_address: 172.20.20.60
+        ipv4_address: 172.25.20.60
     environment:
-      - INDEXER_URL=https://elasticsearch:9200
+      - INDEXER_URL=https://wazuh-indexer:9200
       - INDEXER_USERNAME=admin
-      - INDEXER_PASSWORD=${ELASTIC_PASSWORD:-changeme}
+      - INDEXER_PASSWORD=${WAZUH_INDEXER_PASSWORD:-SecretPassword}
       - FILEBEAT_SSL_VERIFICATION_MODE=none
-      - SSL_CERTIFICATE_AUTHORITIES=/etc/ssl/root-ca.pem
-      - SSL_CERTIFICATE=/etc/ssl/filebeat.pem
-      - SSL_KEY=/etc/ssl/filebeat.key
+      - SSL_CERTIFICATE_AUTHORITIES=
+      - SSL_CERTIFICATE=
+      - SSL_KEY=
       - API_USERNAME=wazuh-wui
       - API_PASSWORD=${WAZUH_API_PASSWORD:-MyS3cr37P450r.*-}
     volumes:
@@ -413,6 +445,8 @@ services:
       - "1515:1515" # Agent enrollment
       - "514:514/udp" # Syslog
       - "55000:55000" # API
+    depends_on:
+      - wazuh-indexer
     restart: unless-stopped
     mem_limit: 2g
     cpus: 0.5
@@ -424,20 +458,19 @@ services:
     hostname: wazuh-dashboard
     networks:
       security_net:
-        ipv4_address: 172.20.30.21
+        ipv4_address: 172.25.30.21
     environment:
-      - INDEXER_USERNAME=admin
-      - INDEXER_PASSWORD=${ELASTIC_PASSWORD:-changeme}
+      - OPENSEARCH_HOSTS=http://wazuh-indexer:9200
       - WAZUH_API_URL=https://wazuh:55000
-      - DASHBOARD_USERNAME=kibanaserver
-      - DASHBOARD_PASSWORD=${WAZUH_DASHBOARD_PASSWORD:-kibanaserver}
       - API_USERNAME=wazuh-wui
       - API_PASSWORD=${WAZUH_API_PASSWORD:-MyS3cr37P450r.*-}
+      - WAZUH_INDEXER_USERNAME=admin
+      - WAZUH_INDEXER_PASSWORD=${WAZUH_INDEXER_PASSWORD:-SecretPassword}
     ports:
       - "5602:5601"
     depends_on:
       - wazuh
-      - elasticsearch
+      - wazuh-indexer
     restart: unless-stopped
     mem_limit: 1g
     cpus: 0.3
@@ -450,7 +483,7 @@ services:
   #   user: root
   #   networks:
   #     security_net:
-  #       ipv4_address: 172.20.30.22
+  #       ipv4_address: 172.25.30.22
   #   environment:
   #     - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
   #     - ELASTICSEARCH_USERNAME=elastic
@@ -477,7 +510,7 @@ services:
   #   hostname: logstash
   #   networks:
   #     security_net:
-  #       ipv4_address: 172.20.30.30
+  #       ipv4_address: 172.25.30.30
   #   environment:
   #     - "LS_JAVA_OPTS=-Xms1g -Xmx1g"
   #     - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
@@ -516,47 +549,47 @@ services:
     cpus: 1.0
 
   # TheHive - Incident Response Platform
-  thehive:
-    image: strangebee/thehive:5.2
-    container_name: thehive
-    hostname: thehive
-    networks:
-      security_net:
-        ipv4_address: 172.20.30.40
-    environment:
-      - JVM_OPTS=-Xms1g -Xmx1g
-    volumes:
-      - thehive_data:/opt/thp/thehive/data
-      - ./configs/thehive/application.conf:/etc/thehive/application.conf
-    ports:
-      - "9000:9000"
-    depends_on:
-      - elasticsearch
-    restart: unless-stopped
-    mem_limit: 1.5g
-    cpus: 0.5
+  # thehive:
+  #   image: strangebee/thehive:5.2
+  #   container_name: thehive
+  #   hostname: thehive
+  #   networks:
+  #     security_net:
+  #       ipv4_address: 172.25.30.40
+  #   environment:
+  #     - JVM_OPTS=-Xms1g -Xmx1g
+  #   volumes:
+  #     - thehive_data:/opt/thp/thehive/data
+  #     - ./configs/thehive/application.conf:/etc/thehive/application.conf
+  #   ports:
+  #     - "9000:9000"
+  #   depends_on:
+  #     - elasticsearch
+  #   restart: unless-stopped
+  #   mem_limit: 1.5g
+  #   cpus: 0.5
 
   # Cortex - TheHive Analysis Engine
-  cortex:
-    image: thehiveproject/cortex:latest
-    container_name: cortex
-    hostname: cortex
-    networks:
-      security_net:
-        ipv4_address: 172.20.30.41
-    environment:
-      - job_directory=/tmp/cortex-jobs
-    volumes:
-      - cortex_data:/var/cortex
-      - ./configs/cortex/application.conf:/etc/cortex/application.conf
-      - /var/run/docker.sock:/var/run/docker.sock
-    ports:
-      - "9001:9001"
-    depends_on:
-      - elasticsearch
-    restart: unless-stopped
-    mem_limit: 1g
-    cpus: 0.3
+  # cortex:
+  #   image: thehiveproject/cortex:latest
+  #   container_name: cortex
+  #   hostname: cortex
+  #   networks:
+  #     security_net:
+  #       ipv4_address: 172.25.30.41
+  #   environment:
+  #     - job_directory=/tmp/cortex-jobs
+  #   volumes:
+  #     - cortex_data:/var/cortex
+  #     - ./configs/cortex/application.conf:/etc/cortex/application.conf
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #   ports:
+  #     - "9001:9001"
+  #   depends_on:
+  #     - elasticsearch
+  #   restart: unless-stopped
+  #   mem_limit: 1g
+  #   cpus: 0.3
 
   # AI Log Analyzer - Custom Service
   # ai-analyzer:
@@ -567,7 +600,7 @@ services:
   #   hostname: ai-analyzer
   #   networks:
   #     security_net:
-  #       ipv4_address: 172.20.30.50
+  #       ipv4_address: 172.25.30.50
   #   environment:
   #     - ELASTICSEARCH_HOST=http://elasticsearch:9200
   #     - ELASTICSEARCH_USER=elastic
@@ -595,7 +628,7 @@ services:
   #   hostname: ollama
   #   networks:
   #     security_net:
-  #       ipv4_address: 172.20.30.51
+  #       ipv4_address: 172.25.30.51
   #   volumes:
   #     - ollama_data:/root/.ollama
   #   ports:
@@ -609,152 +642,152 @@ services:
   # ============================================================================
 
   # Prometheus - Metrics Collection
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    hostname: prometheus
-    networks:
-      management_net:
-        ipv4_address: 172.20.40.10
-      security_net:
-        ipv4_address: 172.20.30.60
-    volumes:
-      - prometheus_data:/prometheus
-      - ./configs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./configs/prometheus/alerts:/etc/prometheus/alerts:ro
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"
-      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
-      - "--web.console.templates=/usr/share/prometheus/consoles"
-    ports:
-      - "9090:9090"
-    restart: unless-stopped
-    mem_limit: 1g
-    cpus: 0.3
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: prometheus
+  #   hostname: prometheus
+  #   networks:
+  #     management_net:
+  #       ipv4_address: 172.25.40.10
+  #     security_net:
+  #       ipv4_address: 172.25.30.60
+  #   volumes:
+  #     - prometheus_data:/prometheus
+  #     - ./configs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+  #     - ./configs/prometheus/alerts:/etc/prometheus/alerts:ro
+  #   command:
+  #     - "--config.file=/etc/prometheus/prometheus.yml"
+  #     - "--storage.tsdb.path=/prometheus"
+  #     - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+  #     - "--web.console.templates=/usr/share/prometheus/consoles"
+  #   ports:
+  #     - "9090:9090"
+  #   restart: unless-stopped
+  #   mem_limit: 1g
+  #   cpus: 0.3
 
-  # Grafana - Monitoring Dashboard
-  grafana:
-    image: grafana/grafana:latest
-    container_name: grafana
-    hostname: grafana
-    networks:
-      management_net:
-        ipv4_address: 172.20.40.11
-    environment:
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
-      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
-      - GF_SERVER_ROOT_URL=http://localhost:3000
-      - GF_AUTH_LDAP_ENABLED=true
-      - GF_AUTH_LDAP_CONFIG_FILE=/etc/grafana/ldap.toml
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./configs/grafana/grafana.ini:/etc/grafana/grafana.ini
-      - ./configs/grafana/ldap.toml:/etc/grafana/ldap.toml
-      - ./dashboards:/etc/grafana/provisioning/dashboards
-    ports:
-      - "3000:3000"
-    depends_on:
-      - prometheus
-      - openldap
-    restart: unless-stopped
-    mem_limit: 512m
-    cpus: 0.3
+  # # Grafana - Monitoring Dashboard
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: grafana
+  #   hostname: grafana
+  #   networks:
+  #     management_net:
+  #       ipv4_address: 172.25.40.11
+  #   environment:
+  #     - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+  #     - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+  #     - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+  #     - GF_SERVER_ROOT_URL=http://localhost:3000
+  #     - GF_AUTH_LDAP_ENABLED=true
+  #     - GF_AUTH_LDAP_CONFIG_FILE=/etc/grafana/ldap.toml
+  #   volumes:
+  #     - grafana_data:/var/lib/grafana
+  #     - ./configs/grafana/grafana.ini:/etc/grafana/grafana.ini
+  #     - ./configs/grafana/ldap.toml:/etc/grafana/ldap.toml
+  #     - ./dashboards:/etc/grafana/provisioning/dashboards
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - prometheus
+  #     - openldap
+  #   restart: unless-stopped
+  #   mem_limit: 512m
+  #   cpus: 0.3
 
-  # FreeRADIUS - AAA Server
-  freeradius:
-    image: freeradius/freeradius-server:latest
-    container_name: freeradius
-    hostname: freeradius
-    networks:
-      management_net:
-        ipv4_address: 172.20.40.20
-      internal_net:
-        ipv4_address: 172.20.20.70
-    environment:
-      - RADIUS_LDAP_SERVER=openldap
-      - RADIUS_LDAP_BASE_DN=dc=cyberlab,dc=local
-      - RADIUS_LDAP_BIND_DN=cn=admin,dc=cyberlab,dc=local
-      - RADIUS_LDAP_BIND_PASSWORD=${LDAP_ADMIN_PASSWORD:-admin}
-    volumes:
-      - radius_data:/etc/raddb
-      - ./configs/radius:/config
-    ports:
-      - "1812:1812/udp" # Authentication
-      - "1813:1813/udp" # Accounting
-    depends_on:
-      - openldap
-    restart: unless-stopped
-    mem_limit: 512m
-    cpus: 0.2
+  # # FreeRADIUS - AAA Server
+  # freeradius:
+  #   image: freeradius/freeradius-server:latest
+  #   container_name: freeradius
+  #   hostname: freeradius
+  #   networks:
+  #     management_net:
+  #       ipv4_address: 172.25.40.20
+  #     internal_net:
+  #       ipv4_address: 172.25.20.70
+  #   environment:
+  #     - RADIUS_LDAP_SERVER=openldap
+  #     - RADIUS_LDAP_BASE_DN=dc=cyberlab,dc=local
+  #     - RADIUS_LDAP_BIND_DN=cn=admin,dc=cyberlab,dc=local
+  #     - RADIUS_LDAP_BIND_PASSWORD=${LDAP_ADMIN_PASSWORD:-admin}
+  #   volumes:
+  #     - radius_data:/etc/raddb
+  #     - ./configs/radius:/config
+  #   ports:
+  #     - "1812:1812/udp" # Authentication
+  #     - "1813:1813/udp" # Accounting
+  #   depends_on:
+  #     - openldap
+  #   restart: unless-stopped
+  #   mem_limit: 512m
+  #   cpus: 0.2
 
-  # Backup Service
-  backup:
-    image: restic/restic:latest
-    container_name: backup
-    hostname: backup
-    networks:
-      management_net:
-        ipv4_address: 172.20.40.30
-    environment:
-      - RESTIC_REPOSITORY=/backup-repo
-      - RESTIC_PASSWORD=${BACKUP_PASSWORD:-SecureBackupP@ss}
-      - BACKUP_SCHEDULE=0 2 * * *
-    volumes:
-      - backup_data:/backup-repo
-      - elasticsearch_data:/backup-source/elasticsearch:ro
-      - postgres_data:/backup-source/postgres:ro
-      - openldap_data:/backup-source/ldap:ro
-      - wazuh_etc:/backup-source/wazuh:ro
-      - ./configs:/backup-source/configs:ro
-      - ./scripts/backup.sh:/usr/local/bin/backup.sh:ro
-    command: sh -c "chmod +x /usr/local/bin/backup.sh && /usr/local/bin/backup.sh"
-    restart: unless-stopped
-    mem_limit: 512m
-    cpus: 0.2
+  # # Backup Service
+  # backup:
+  #   image: restic/restic:latest
+  #   container_name: backup
+  #   hostname: backup
+  #   networks:
+  #     management_net:
+  #       ipv4_address: 172.25.40.30
+  #   environment:
+  #     - RESTIC_REPOSITORY=/backup-repo
+  #     - RESTIC_PASSWORD=${BACKUP_PASSWORD:-SecureBackupP@ss}
+  #     - BACKUP_SCHEDULE=0 2 * * *
+  #   volumes:
+  #     - backup_data:/backup-repo
+  #     - elasticsearch_data:/backup-source/elasticsearch:ro
+  #     - postgres_data:/backup-source/postgres:ro
+  #     - openldap_data:/backup-source/ldap:ro
+  #     - wazuh_etc:/backup-source/wazuh:ro
+  #     - ./configs:/backup-source/configs:ro
+  #     - ./scripts/backup.sh:/usr/local/bin/backup.sh:ro
+  #   command: sh -c "chmod +x /usr/local/bin/backup.sh && /usr/local/bin/backup.sh"
+  #   restart: unless-stopped
+  #   mem_limit: 512m
+  #   cpus: 0.2
 
-  # Node Exporter - System Metrics
-  node-exporter:
-    image: prom/node-exporter:latest
-    container_name: node-exporter
-    hostname: node-exporter
-    networks:
-      management_net:
-        ipv4_address: 172.20.40.40
-    command:
-      - "--path.procfs=/host/proc"
-      - "--path.sysfs=/host/sys"
-      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    ports:
-      - "9100:9100"
-    restart: unless-stopped
-    mem_limit: 256m
-    cpus: 0.1
+  # # Node Exporter - System Metrics
+  # node-exporter:
+  #   image: prom/node-exporter:latest
+  #   container_name: node-exporter
+  #   hostname: node-exporter
+  #   networks:
+  #     management_net:
+  #       ipv4_address: 172.25.40.40
+  #   command:
+  #     - "--path.procfs=/host/proc"
+  #     - "--path.sysfs=/host/sys"
+  #     - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+  #   volumes:
+  #     - /proc:/host/proc:ro
+  #     - /sys:/host/sys:ro
+  #     - /:/rootfs:ro
+  #   ports:
+  #     - "9100:9100"
+  #   restart: unless-stopped
+  #   mem_limit: 256m
+  #   cpus: 0.1
 
-  # cAdvisor - Container Metrics
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
-    container_name: cadvisor
-    hostname: cadvisor
-    networks:
-      management_net:
-        ipv4_address: 172.20.40.41
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker:/var/lib/docker:ro
-      - /dev/disk:/dev/disk:ro
-    ports:
-      - "8081:8080"
-    privileged: true
-    devices:
-      - /dev/kmsg
-    restart: unless-stopped
-    mem_limit: 256m
-    cpus: 0.1
+  # # cAdvisor - Container Metrics
+  # cadvisor:
+  #   image: gcr.io/cadvisor/cadvisor:latest
+  #   container_name: cadvisor
+  #   hostname: cadvisor
+  #   networks:
+  #     management_net:
+  #       ipv4_address: 172.25.40.41
+  #   volumes:
+  #     - /:/rootfs:ro
+  #     - /var/run:/var/run:ro
+  #     - /sys:/sys:ro
+  #     - /var/lib/docker:/var/lib/docker:ro
+  #     - /dev/disk:/dev/disk:ro
+  #   ports:
+  #     - "8081:8080"
+  #   privileged: true
+  #   devices:
+  #     - /dev/kmsg
+  #   restart: unless-stopped
+  #   mem_limit: 256m
+  #   cpus: 0.1

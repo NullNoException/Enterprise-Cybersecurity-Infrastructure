@@ -31,6 +31,7 @@ LDAP_ADMIN_PASSWORD=$(generate_password)
 LDAP_CONFIG_PASSWORD=$(generate_password)
 
 # Wazuh
+WAZUH_INDEXER_PASSWORD=$(generate_password)
 WAZUH_API_PASSWORD=$(generate_password)
 WAZUH_DASHBOARD_PASSWORD=$(generate_password)
 
