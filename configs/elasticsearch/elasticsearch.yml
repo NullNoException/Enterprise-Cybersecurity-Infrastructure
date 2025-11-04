@@ -1,0 +1,283 @@
+# Elasticsearch Configuration
+# For CyberLab Security Infrastructure
+
+# ======================== Elasticsearch Configuration =========================
+#
+# NOTE: Elasticsearch comes with reasonable defaults for most settings.
+#       Before you set out to tweak and tune the configuration, make sure you
+#       understand what are you trying to accomplish and the consequences.
+#
+# The primary way of configuring a node is via this file. This template lists
+# the most important settings you may want to configure for a production cluster.
+#
+# Please consult the documentation for further information on configuration options:
+# https://www.elastic.co/guide/en/elasticsearch/reference/index.html
+
+# ---------------------------------- Cluster -----------------------------------
+#
+# Use a descriptive name for your cluster:
+#
+cluster.name: cyberlab-cluster
+
+# ------------------------------------ Node ------------------------------------
+#
+# Use a descriptive name for the node:
+#
+node.name: elasticsearch
+
+# Add custom attributes to the node:
+#
+#node.attr.rack: r1
+
+# Node roles (single-node setup)
+node.roles: [ master, data, ingest, ml ]
+
+# ----------------------------------- Paths ------------------------------------
+#
+# Path to directory where to store the data (separate multiple locations by comma):
+#
+path.data: /usr/share/elasticsearch/data
+
+# Path to log files:
+#
+path.logs: /usr/share/elasticsearch/logs
+
+# ----------------------------------- Memory -----------------------------------
+#
+# Lock the memory on startup:
+#
+bootstrap.memory_lock: true
+
+# Make sure that the heap size is set to about half the memory available
+# on the system and that the owner of the process is allowed to use this
+# limit.
+#
+# Elasticsearch performs poorly when the system is swapping the memory.
+
+# ---------------------------------- Network -----------------------------------
+#
+# By default Elasticsearch is only accessible on localhost. Set a different
+# address here to expose this node on the network:
+#
+network.host: 0.0.0.0
+
+# By default Elasticsearch listens for HTTP traffic on the first free port it
+# finds starting at 9200. Set a specific HTTP port here:
+#
+http.port: 9200
+
+# Transport layer port
+transport.port: 9300
+
+# For more information, consult the network module documentation.
+
+# --------------------------------- Discovery ----------------------------------
+#
+# Pass an initial list of hosts to perform discovery when this node is started:
+# The default list of hosts is ["127.0.0.1", "[::1]"]
+#
+#discovery.seed_hosts: ["host1", "host2"]
+
+# Bootstrap the cluster using an initial set of master-eligible nodes:
+#
+#cluster.initial_master_nodes: ["node-1", "node-2"]
+
+# Single-node discovery (for development/lab environments)
+discovery.type: single-node
+
+# For more information, consult the discovery and cluster formation module documentation.
+
+# ---------------------------------- Various -----------------------------------
+#
+# Allow wildcard deletion of indices:
+#
+action.destructive_requires_name: false
+
+# ---------------------------------- Gateway -----------------------------------
+#
+# Block initial recovery after a full cluster restart until N nodes are started:
+#
+#gateway.recover_after_nodes: 3
+
+# For more information, consult the gateway module documentation.
+
+# ---------------------------------- X-Pack ------------------------------------
+#
+# X-Pack Security
+xpack.security.enabled: true
+xpack.security.enrollment.enabled: true
+
+# Authentication
+xpack.security.authc.api_key.enabled: true
+xpack.security.authc.token.enabled: true
+
+# HTTP SSL (disabled for internal Docker network)
+xpack.security.http.ssl.enabled: false
+
+# Transport SSL (disabled for single-node)
+xpack.security.transport.ssl.enabled: false
+
+# X-Pack Monitoring
+xpack.monitoring.collection.enabled: true
+xpack.monitoring.elasticsearch.collection.enabled: true
+
+# X-Pack Machine Learning
+xpack.ml.enabled: true
+
+# X-Pack Graph
+xpack.graph.enabled: true
+
+# X-Pack Watcher (Alerting)
+xpack.watcher.enabled: true
+
+# ---------------------------------- Indices -----------------------------------
+#
+# Index settings
+indices.memory.index_buffer_size: 20%
+
+# Query cache
+indices.queries.cache.size: 10%
+
+# Fielddata cache
+indices.fielddata.cache.size: 20%
+
+# Maximum number of clauses in a query
+indices.query.bool.max_clause_count: 10000
+
+# ---------------------------------- Search ------------------------------------
+#
+# Search settings
+search.max_buckets: 65536
+search.max_open_scroll_context: 500
+
+# ---------------------------------- Index Lifecycle ---------------------------
+#
+# Enable ILM (Index Lifecycle Management)
+xpack.ilm.enabled: true
+
+# ---------------------------------- Snapshot ----------------------------------
+#
+# Snapshot repository path
+#path.repo: ["/mount/backups", "/mount/longterm_backups"]
+
+# ---------------------------------- CORS --------------------------------------
+#
+# Enable CORS (if needed for external access)
+http.cors.enabled: true
+http.cors.allow-origin: "*"
+http.cors.allow-credentials: true
+http.cors.allow-headers: "X-Requested-With, Content-Type, Content-Length, Authorization"
+
+# ---------------------------------- Logging -----------------------------------
+#
+# Log configuration is in log4j2.properties
+
+# ---------------------------------- Thread Pool -------------------------------
+#
+# Thread pool settings for better performance
+thread_pool.write.queue_size: 1000
+thread_pool.search.queue_size: 1000
+thread_pool.get.queue_size: 1000
+
+# ---------------------------------- Circuit Breaker ---------------------------
+#
+# Circuit breaker settings to prevent OOM
+indices.breaker.total.limit: 70%
+indices.breaker.fielddata.limit: 40%
+indices.breaker.request.limit: 40%
+
+# ---------------------------------- Bulk Indexing -----------------------------
+#
+# Bulk request settings
+http.max_content_length: 100mb
+
+# Bulk thread pool
+thread_pool.write.size: 4
+
+# ---------------------------------- Performance Tuning ------------------------
+#
+# Refresh interval (how often indices are refreshed)
+# Default is 1s, increase for better indexing performance
+index.refresh_interval: 30s
+
+# Number of shards (for single node, use 1)
+index.number_of_shards: 1
+
+# Number of replicas (for single node, use 0)
+index.number_of_replicas: 0
+
+# Indexing buffer
+indices.memory.index_buffer_size: 20%
+
+# Merge settings for better performance
+index.merge.scheduler.max_thread_count: 1
+
+# ---------------------------------- Shard Allocation --------------------------
+#
+# Enable shard allocation
+cluster.routing.allocation.enable: all
+
+# Shard balancing
+cluster.routing.allocation.balance.shard: 0.45
+cluster.routing.allocation.balance.index: 0.55
+
+# Disk-based shard allocation
+cluster.routing.allocation.disk.threshold_enabled: true
+cluster.routing.allocation.disk.watermark.low: 85%
+cluster.routing.allocation.disk.watermark.high: 90%
+cluster.routing.allocation.disk.watermark.flood_stage: 95%
+
+# ---------------------------------- Index Management --------------------------
+#
+# Index settings for log data
+index.codec: best_compression
+
+# Translog settings
+index.translog.durability: async
+index.translog.sync_interval: 30s
+index.translog.flush_threshold_size: 512mb
+
+# ---------------------------------- Custom Settings ---------------------------
+#
+# Settings specific to CyberLab infrastructure
+
+# Maximum fields per index (for complex log structures)
+index.mapping.total_fields.limit: 2000
+
+# Maximum depth of nested fields
+index.mapping.depth.limit: 20
+
+# Maximum number of nested JSON objects
+index.mapping.nested_objects.limit: 10000
+
+# Script settings
+script.allowed_types: inline
+script.allowed_contexts: search, update, aggs
+
+# ---------------------------------- Deprecation Logging -----------------------
+#
+# Enable deprecation logging
+logger.deprecation.level: warn
+
+# ---------------------------------- Slow Log ----------------------------------
+#
+# Slow search log thresholds
+index.search.slowlog.threshold.query.warn: 10s
+index.search.slowlog.threshold.query.info: 5s
+index.search.slowlog.threshold.query.debug: 2s
+
+# Slow index log thresholds
+index.indexing.slowlog.threshold.index.warn: 10s
+index.indexing.slowlog.threshold.index.info: 5s
+index.indexing.slowlog.threshold.index.debug: 2s
+
+# ---------------------------------- Rolling Upgrade ---------------------------
+#
+# Cluster settings for rolling upgrades
+cluster.routing.allocation.disk.watermark.enable_for_single_data_node: true
+
+# ---------------------------------- Custom Analyzers --------------------------
+#
+# (Custom analyzers would be defined in index templates)
+
+# ---------------------------------- End of Configuration ----------------------
