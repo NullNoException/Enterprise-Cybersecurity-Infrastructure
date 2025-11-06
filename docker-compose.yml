@@ -37,8 +37,7 @@ networks:
           gateway: 172.25.40.1
 
 volumes:
-  elasticsearch_data:
-  wazuh_indexer_data:
+  #Wazuh volumes
   wazuh_api_configuration:
   wazuh_etc:
   wazuh_logs:
@@ -48,14 +47,19 @@ volumes:
   wazuh_active_response:
   wazuh_agentless:
   wazuh_wodles:
-  # filebeat_etc:
-  # filebeat_var:
+  filebeat_etc:
+  filebeat_var:
+  wazuh-indexer-data:
+  wazuh-dashboard-config:
+  wazuh-dashboard-custom:
+
   postgres_data:
   openldap_data:
   openldap_config:
   radius_data:
   nginx_certs:
-  opnsense_config:
+  neuvector_controller:
+  neuvector_consul:
   grafana_data:
   prometheus_data:
   rocketchat_data:
@@ -72,34 +76,124 @@ services:
   # NETWORK & FIREWALL LAYER
   # ============================================================================
 
-  opnsense:
-    image: demisto/opnsense:1.0.0.4889421
-    container_name: opnsense
-    hostname: opnsense
+  # Consul - Service discovery for NeuVector clustering (must start first)
+  consul:
+    image: hashicorp/consul:1.17
+    container_name: consul
+    hostname: consul
+    networks:
+      security_net:
+        ipv4_address: 172.25.30.6
+    command: agent -server -ui -bootstrap-expect=1 -client=0.0.0.0
+    environment:
+      - CONSUL_BIND_INTERFACE=eth0
+      - TZ=UTC
+    volumes:
+      - neuvector_consul:/consul/data
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.3
+
+  # NeuVector Controller - Main control center
+  neuvector-controller:
+    image: neuvector/controller:latest
+    container_name: neuvector-controller
+    hostname: neuvector-controller
     privileged: true
     networks:
       external_net:
         ipv4_address: 172.25.0.10
       dmz_net:
-        ipv4_address: 172.25.10.1
+        ipv4_address: 172.25.10.254
       internal_net:
-        ipv4_address: 172.25.20.1
+        ipv4_address: 172.25.20.254
       security_net:
-        ipv4_address: 172.25.30.1
-    ports:
-      - "8443:443" # Web UI
-      - "8080:80" # HTTP redirect
-    volumes:
-      - opnsense_config:/conf
-      - ./configs/opnsense:/usr/local/etc/opnsense
+        ipv4_address: 172.25.30.254
     environment:
+      - CLUSTER_JOIN_ADDR=172.25.30.6
+      - CONSUL_ADDR=http://consul:8500
+      - CTRL_PERSIST_CONFIG=1
       - TZ=UTC
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
+    volumes:
+      - neuvector_controller:/var/neuvector
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./configs/neuvector/certs:/etc/neuvector/certs:ro
+    depends_on:
+      - consul
     restart: unless-stopped
     mem_limit: 2g
     cpus: 1.0
+
+  # NeuVector Enforcer - Network policy enforcement
+  neuvector-enforcer:
+    image: neuvector/enforcer:latest
+    container_name: neuvector-enforcer
+    hostname: neuvector-enforcer
+    privileged: true
+    pid: host
+    networks:
+      external_net:
+        ipv4_address: 172.25.0.12
+      dmz_net:
+        ipv4_address: 172.25.10.253
+      internal_net:
+        ipv4_address: 172.25.20.253
+      security_net:
+        ipv4_address: 172.25.30.253
+    environment:
+      - CLUSTER_JOIN_ADDR=172.25.30.6
+      - CONSUL_ADDR=http://172.25.30.6:8500
+      - TZ=UTC
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc:/host/proc:ro
+      - /sys/fs/cgroup:/host/cgroup:ro
+      - /var/neuvector:/var/neuvector
+    depends_on:
+      - consul
+      - neuvector-controller
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: 0.5
+
+  # NeuVector Manager - Web UI
+  neuvector-manager:
+    image: neuvector/manager:latest
+    container_name: neuvector-manager
+    hostname: neuvector-manager
+    networks:
+      external_net:
+        ipv4_address: 172.25.0.11
+    ports:
+      - "8443:8443" # Web UI (HTTPS)
+    environment:
+      - TZ=UTC
+    depends_on:
+      - neuvector-controller
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.5
+
+  # NeuVector Scanner - Vulnerability scanning
+  neuvector-scanner:
+    image: neuvector/scanner:latest
+    container_name: neuvector-scanner
+    hostname: neuvector-scanner
+    networks:
+      security_net:
+        ipv4_address: 172.25.30.5
+    environment:
+      - CLUSTER_JOIN_ADDR=172.25.30.6
+      - CONSUL_ADDR=http://172.25.30.6:8500
+      - TZ=UTC
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - consul
+      - neuvector-controller
+    restart: unless-stopped
+    mem_limit: 1.5g
+    cpus: 0.5
 
   # VPN Gateway - WireGuard
   wireguard:
@@ -170,14 +264,15 @@ services:
     environment:
       - TZ=UTC
     depends_on:
-      - opnsense
+      - neuvector-controller
+      - wazuh.manager
     restart: unless-stopped
     mem_limit: 512m
     cpus: 0.5
     logging:
       driver: syslog
       options:
-        syslog-address: "udp://172.25.30.30:514"
+        syslog-address: "udp://172.25.30.20:514"
         tag: "nginx"
 
   # Honeypot - T-Pot
@@ -225,13 +320,15 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
+    depends_on:
+      - wazuh.manager
     restart: unless-stopped
     mem_limit: 1g
     cpus: 0.5
     logging:
       driver: syslog
       options:
-        syslog-address: "udp://172.25.30.30:514"
+        syslog-address: "udp://172.25.30.20:514"
         tag: "postgresql"
 
   # OpenLDAP
@@ -321,79 +418,20 @@ services:
   # SECURITY NETWORK - MONITORING & DEFENSE
   # ============================================================================
 
-  # Elasticsearch - SIEM Backend
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
-    container_name: elasticsearch
-    hostname: elasticsearch
+  # Wazuh Indexer (OpenSearch-based) - Must start first
+  wazuh.indexer:
+    image: wazuh/wazuh-indexer:4.14.0
+    container_name: wazuh.indexer
+    hostname: wazuh.indexer
+    restart: always
     networks:
       security_net:
         ipv4_address: 172.25.30.10
-    environment:
-      - node.name=elasticsearch
-      - cluster.name=cyberlab-cluster
-      - discovery.type=single-node
-      - bootstrap.memory_lock=true
-      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
-      - xpack.security.enabled=true
-      - xpack.security.authc.api_key.enabled=true
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-changeme}
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-      nofile:
-        soft: 65536
-        hard: 65536
-    volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
-      - ./configs/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
     ports:
       - "9200:9200"
-    restart: unless-stopped
-    mem_limit: 4g
-    cpus: 1.0
-
-  # # Kibana - SIEM Visualization
-  # kibana:
-  #   image: docker.elastic.co/kibana/kibana:8.11.0
-  #   container_name: kibana
-  #   hostname: kibana
-  #   networks:
-  #     security_net:
-  #       ipv4_address: 172.25.30.11
-  #   environment:
-  #     - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-  #     - ELASTICSEARCH_USERNAME=elastic
-  #     - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD:-changeme}
-  #     - SERVER_NAME=kibana
-  #     - SERVER_HOST=0.0.0.0
-  #   volumes:
-  #     - ./configs/kibana/kibana.yml:/usr/share/kibana/config/kibana.yml
-  #   ports:
-  #     - "5601:5601"
-  #   depends_on:
-  #     - elasticsearch
-  #   restart: unless-stopped
-  #   mem_limit: 1g
-  #   cpus: 0.5
-
-  # Wazuh Indexer (OpenSearch-based)
-  wazuh-indexer:
-    image: wazuh/wazuh-indexer:4.7.0
-    container_name: wazuh-indexer
-    hostname: wazuh-indexer
-    networks:
-      security_net:
-        ipv4_address: 172.25.30.15
     environment:
       - "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"
-      - "bootstrap.memory_lock=true"
-      - "discovery.type=single-node"
-      - "network.host=0.0.0.0"
-      - "plugins.security.ssl.http.enabled=false"
-      - "plugins.security.disabled=true"
-      - "compatibility.override_main_response_version=true"
+      - TZ=UTC
     ulimits:
       memlock:
         soft: -1
@@ -402,33 +440,53 @@ services:
         soft: 65536
         hard: 65536
     volumes:
-      - wazuh_indexer_data:/var/lib/wazuh-indexer
-    ports:
-      - "9201:9200"
-    restart: unless-stopped
+      - wazuh-indexer-data:/var/lib/wazuh-indexer
+      - ./configs/wazuh/wazuh_indexer_ssl_certs/root-ca.pem:/usr/share/wazuh-indexer/config/certs/root-ca.pem
+      - ./configs/wazuh/wazuh_indexer_ssl_certs/wazuh.indexer-key.pem:/usr/share/wazuh-indexer/config/certs/wazuh.indexer.key
+      - ./configs/wazuh/wazuh_indexer_ssl_certs/wazuh.indexer.pem:/usr/share/wazuh-indexer/config/certs/wazuh.indexer.pem
+      - ./configs/wazuh/wazuh_indexer_ssl_certs/admin.pem:/usr/share/wazuh-indexer/config/certs/admin.pem
+      - ./configs/wazuh/wazuh_indexer_ssl_certs/admin-key.pem:/usr/share/wazuh-indexer/config/certs/admin-key.pem
+      - ./configs/wazuh/wazuh_indexer/wazuh.indexer.yml:/usr/share/wazuh-indexer/config/opensearch.yml
+      - ./configs/wazuh/wazuh_indexer/internal_users.yml:/usr/share/wazuh-indexer/config/opensearch-security/internal_users.yml
     mem_limit: 2g
-    cpus: 0.5
+    cpus: 1.0
 
-  # Wazuh Manager
-  wazuh:
-    image: wazuh/wazuh-manager:4.7.0
-    container_name: wazuh
-    hostname: wazuh-manager
+  # Wazuh Manager - Starts after indexer
+  wazuh.manager:
+    image: wazuh/wazuh-manager:4.14.0
+    container_name: wazuh.manager
+    hostname: wazuh.manager
+    restart: always
     networks:
       security_net:
         ipv4_address: 172.25.30.20
       internal_net:
         ipv4_address: 172.25.20.60
+      dmz_net:
+        ipv4_address: 172.25.10.60
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 655360
+        hard: 655360
+    ports:
+      - "1514:1514" # Agent events
+      - "1515:1515" # Agent enrollment
+      - "514:514/udp" # Syslog
+      - "55000:55000" # API
     environment:
-      - INDEXER_URL=https://wazuh-indexer:9200
+      - INDEXER_URL=https://wazuh.indexer:9200
       - INDEXER_USERNAME=admin
-      - INDEXER_PASSWORD=${WAZUH_INDEXER_PASSWORD:-SecretPassword}
-      - FILEBEAT_SSL_VERIFICATION_MODE=none
-      - SSL_CERTIFICATE_AUTHORITIES=
-      - SSL_CERTIFICATE=
-      - SSL_KEY=
+      - INDEXER_PASSWORD=SecretPassword
+      - FILEBEAT_SSL_VERIFICATION_MODE=full
+      - SSL_CERTIFICATE_AUTHORITIES=/etc/ssl/root-ca.pem
+      - SSL_CERTIFICATE=/etc/ssl/filebeat.pem
+      - SSL_KEY=/etc/ssl/filebeat.key
       - API_USERNAME=wazuh-wui
-      - API_PASSWORD=${WAZUH_API_PASSWORD:-MyS3cr37P450r.*-}
+      - API_PASSWORD=MyS3cr37P450r.*-
+      - TZ=UTC
     volumes:
       - wazuh_api_configuration:/var/ossec/api/configuration
       - wazuh_etc:/var/ossec/etc
@@ -439,95 +497,57 @@ services:
       - wazuh_active_response:/var/ossec/active-response/bin
       - wazuh_agentless:/var/ossec/agentless
       - wazuh_wodles:/var/ossec/wodles
-      - ./configs/wazuh:/wazuh-config-mount
-    ports:
-      - "1514:1514" # Agent connection
-      - "1515:1515" # Agent enrollment
-      - "514:514/udp" # Syslog
-      - "55000:55000" # API
+      - filebeat_etc:/etc/filebeat
+      - filebeat_var:/var/lib/filebeat
+      - ./configs/wazuh/wazuh_indexer_ssl_certs/root-ca-manager.pem:/etc/ssl/root-ca.pem
+      - ./configs/wazuh/wazuh_indexer_ssl_certs/wazuh.manager.pem:/etc/ssl/filebeat.pem
+      - ./configs/wazuh/wazuh_indexer_ssl_certs/wazuh.manager-key.pem:/etc/ssl/filebeat.key
+      - ./configs/wazuh/wazuh_cluster/wazuh_manager.conf:/wazuh-config-mount/etc/ossec.conf
     depends_on:
-      - wazuh-indexer
-    restart: unless-stopped
+      - wazuh.indexer
     mem_limit: 2g
-    cpus: 0.5
+    cpus: 1.0
 
-  # Wazuh Dashboard
-  wazuh-dashboard:
-    image: wazuh/wazuh-dashboard:4.7.0
-    container_name: wazuh-dashboard
-    hostname: wazuh-dashboard
+  # Wazuh Dashboard - Starts after manager and indexer
+  wazuh.dashboard:
+    image: wazuh/wazuh-dashboard:4.14.0
+    container_name: wazuh.dashboard
+    hostname: wazuh.dashboard
+    restart: always
     networks:
       security_net:
         ipv4_address: 172.25.30.21
-    environment:
-      - OPENSEARCH_HOSTS=http://wazuh-indexer:9200
-      - WAZUH_API_URL=https://wazuh:55000
-      - API_USERNAME=wazuh-wui
-      - API_PASSWORD=${WAZUH_API_PASSWORD:-MyS3cr37P450r.*-}
-      - WAZUH_INDEXER_USERNAME=admin
-      - WAZUH_INDEXER_PASSWORD=${WAZUH_INDEXER_PASSWORD:-SecretPassword}
     ports:
-      - "5602:5601"
+      - "5601:5601"
+    environment:
+      - INDEXER_USERNAME=admin
+      - INDEXER_PASSWORD=SecretPassword
+      - WAZUH_API_URL=https://wazuh.manager
+      - DASHBOARD_USERNAME=kibanaserver
+      - DASHBOARD_PASSWORD=kibanaserver
+      - API_USERNAME=wazuh-wui
+      - API_PASSWORD=MyS3cr37P450r.*-
+      - TZ=UTC
+    volumes:
+      - ./configs/wazuh/wazuh_indexer_ssl_certs/wazuh.dashboard.pem:/usr/share/wazuh-dashboard/certs/wazuh-dashboard.pem
+      - ./configs/wazuh/wazuh_indexer_ssl_certs/wazuh.dashboard-key.pem:/usr/share/wazuh-dashboard/certs/wazuh-dashboard-key.pem
+      - ./configs/wazuh/wazuh_indexer_ssl_certs/root-ca.pem:/usr/share/wazuh-dashboard/certs/root-ca.pem
+      - ./configs/wazuh/wazuh_dashboard/opensearch_dashboards.yml:/usr/share/wazuh-dashboard/config/opensearch_dashboards.yml
+      - ./configs/wazuh/wazuh_dashboard/wazuh.yml:/usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml
+      - wazuh-dashboard-config:/usr/share/wazuh-dashboard/data/wazuh/config
+      - wazuh-dashboard-custom:/usr/share/wazuh-dashboard/plugins/wazuh/public/assets/custom
     depends_on:
-      - wazuh
-      - wazuh-indexer
-    restart: unless-stopped
+      - wazuh.indexer
+      - wazuh.manager
+    links:
+      - wazuh.indexer:wazuh.indexer
+      - wazuh.manager:wazuh.manager
     mem_limit: 1g
-    cpus: 0.3
+    cpus: 0.5
 
-  # Filebeat - Log Shipper
-  # filebeat:
-  #   image: docker.elastic.co/beats/filebeat:8.11.0
-  #   container_name: filebeat
-  #   hostname: filebeat
-  #   user: root
-  #   networks:
-  #     security_net:
-  #       ipv4_address: 172.25.30.22
-  #   environment:
-  #     - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-  #     - ELASTICSEARCH_USERNAME=elastic
-  #     - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD:-changeme}
-  #     - KIBANA_HOST=http://kibana:5601
-  #   volumes:
-  #     - filebeat_etc:/usr/share/filebeat
-  #     - filebeat_var:/var/lib/filebeat
-  #     - ./configs/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
-  #     - /var/lib/docker/containers:/var/lib/docker/containers:ro
-  #     - /var/run/docker.sock:/var/run/docker.sock:ro
-  #   command: filebeat -e -strict.perms=false
-  #   depends_on:
-  #     - elasticsearch
-  #     - kibana
-  #   restart: unless-stopped
-  #   mem_limit: 512m
-  #   cpus: 0.3
-
-  # Logstash - Log Processing
-  # logstash:
-  #   image: docker.elastic.co/logstash/logstash:8.11.0
-  #   container_name: logstash
-  #   hostname: logstash
-  #   networks:
-  #     security_net:
-  #       ipv4_address: 172.25.30.30
-  #   environment:
-  #     - "LS_JAVA_OPTS=-Xms1g -Xmx1g"
-  #     - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-  #     - ELASTICSEARCH_USERNAME=elastic
-  #     - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD:-changeme}
-  #   volumes:
-  #     - ./configs/logstash/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
-  #     - ./configs/logstash/pipeline:/usr/share/logstash/pipeline:ro
-  #   ports:
-  #     - "5000:5000/tcp"   # JSON input
-  #     - "5044:5044"       # Beats input
-  #     - "9600:9600"       # Monitoring API
-  #   depends_on:
-  #     - elasticsearch
-  #   restart: unless-stopped
-  #   mem_limit: 1.5g
-  #   cpus: 0.5
+  # NOTE: Filebeat is built into wazuh.manager container - no separate service needed
+  # NOTE: Elasticsearch is replaced by wazuh.indexer (OpenSearch-based)
+  # NOTE: Kibana is replaced by wazuh.dashboard
 
   # Suricata - IDS/IPS
   suricata:
@@ -549,6 +569,7 @@ services:
     cpus: 1.0
 
   # TheHive - Incident Response Platform
+  # Note: TheHive can use wazuh.indexer (OpenSearch) as its database
   # thehive:
   #   image: strangebee/thehive:5.2
   #   container_name: thehive
@@ -564,10 +585,16 @@ services:
   #   ports:
   #     - "9000:9000"
   #   depends_on:
-  #     - elasticsearch
+  #     - wazuh.indexer
+  #     - wazuh.manager
   #   restart: unless-stopped
   #   mem_limit: 1.5g
   #   cpus: 0.5
+  #   logging:
+  #     driver: syslog
+  #     options:
+  #       syslog-address: "udp://172.25.30.20:514"
+  #       tag: "thehive"
 
   # Cortex - TheHive Analysis Engine
   # cortex:
@@ -586,12 +613,19 @@ services:
   #   ports:
   #     - "9001:9001"
   #   depends_on:
-  #     - elasticsearch
+  #     - wazuh.indexer
+  #     - wazuh.manager
   #   restart: unless-stopped
   #   mem_limit: 1g
   #   cpus: 0.3
+  #   logging:
+  #     driver: syslog
+  #     options:
+  #       syslog-address: "udp://172.25.30.20:514"
+  #       tag: "cortex"
 
   # AI Log Analyzer - Custom Service
+  # Note: Uses Wazuh indexer (OpenSearch) instead of Elasticsearch
   # ai-analyzer:
   #   build:
   #     context: ./ai-analyzer
@@ -602,24 +636,29 @@ services:
   #     security_net:
   #       ipv4_address: 172.25.30.50
   #   environment:
-  #     - ELASTICSEARCH_HOST=http://elasticsearch:9200
-  #     - ELASTICSEARCH_USER=elastic
-  #     - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD:-changeme}
+  #     - OPENSEARCH_HOST=https://wazuh.indexer:9200
+  #     - OPENSEARCH_USER=admin
+  #     - OPENSEARCH_PASSWORD=SecretPassword
   #     - OLLAMA_HOST=http://ollama:11434
-  #     - WAZUH_API_URL=https://wazuh:55000
+  #     - WAZUH_API_URL=https://wazuh.manager:55000
   #     - WAZUH_API_USER=wazuh-wui
-  #     - WAZUH_API_PASSWORD=${WAZUH_API_PASSWORD:-MyS3cr37P450r.*-}
+  #     - WAZUH_API_PASSWORD=MyS3cr37P450r.*-
   #     - ALERT_WEBHOOK=${ROCKETCHAT_WEBHOOK_URL:-}
   #   volumes:
   #     - ./ai-analyzer:/app
   #     - ollama_data:/root/.ollama
   #   depends_on:
-  #     - elasticsearch
-  #     - wazuh
+  #     - wazuh.indexer
+  #     - wazuh.manager
   #     - ollama
   #   restart: unless-stopped
   #   mem_limit: 2g
   #   cpus: 0.5
+  #   logging:
+  #     driver: syslog
+  #     options:
+  #       syslog-address: "udp://172.25.30.20:514"
+  #       tag: "ai-analyzer"
 
   # Ollama - Local LLM
   # ollama:
@@ -662,9 +701,16 @@ services:
   #     - "--web.console.templates=/usr/share/prometheus/consoles"
   #   ports:
   #     - "9090:9090"
+  #   depends_on:
+  #     - wazuh.manager
   #   restart: unless-stopped
   #   mem_limit: 1g
   #   cpus: 0.3
+  #   logging:
+  #     driver: syslog
+  #     options:
+  #       syslog-address: "udp://172.25.30.20:514"
+  #       tag: "prometheus"
 
   # # Grafana - Monitoring Dashboard
   # grafana:
@@ -691,9 +737,15 @@ services:
   #   depends_on:
   #     - prometheus
   #     - openldap
+  #     - wazuh.manager
   #   restart: unless-stopped
   #   mem_limit: 512m
   #   cpus: 0.3
+  #   logging:
+  #     driver: syslog
+  #     options:
+  #       syslog-address: "udp://172.25.30.20:514"
+  #       tag: "grafana"
 
   # # FreeRADIUS - AAA Server
   # freeradius:
@@ -736,16 +788,23 @@ services:
   #     - BACKUP_SCHEDULE=0 2 * * *
   #   volumes:
   #     - backup_data:/backup-repo
-  #     - elasticsearch_data:/backup-source/elasticsearch:ro
+  #     - wazuh-indexer-data:/backup-source/wazuh-indexer:ro
   #     - postgres_data:/backup-source/postgres:ro
   #     - openldap_data:/backup-source/ldap:ro
   #     - wazuh_etc:/backup-source/wazuh:ro
   #     - ./configs:/backup-source/configs:ro
   #     - ./scripts/backup.sh:/usr/local/bin/backup.sh:ro
   #   command: sh -c "chmod +x /usr/local/bin/backup.sh && /usr/local/bin/backup.sh"
+  #   depends_on:
+  #     - wazuh.manager
   #   restart: unless-stopped
   #   mem_limit: 512m
   #   cpus: 0.2
+  #   logging:
+  #     driver: syslog
+  #     options:
+  #       syslog-address: "udp://172.25.30.20:514"
+  #       tag: "backup"
 
   # # Node Exporter - System Metrics
   # node-exporter:

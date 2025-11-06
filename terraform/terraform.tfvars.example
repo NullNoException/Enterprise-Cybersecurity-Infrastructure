@@ -1,0 +1,130 @@
+# Example Terraform Variables Configuration
+# Copy this file to terraform.tfvars and customize for your environment
+
+# Platform Configuration
+# Options: darwin, macos, windows, linux
+platform = "darwin"
+
+# Hypervisor Configuration
+# Options: vmware, fusion, virtualbox
+# Use "fusion" for VMware Fusion on macOS
+# Use "vmware" for VMware Workstation on Windows/Linux
+# Use "virtualbox" for VirtualBox on any platform
+hypervisor = "fusion"
+
+# Project Configuration
+project_name = "cyberlab"
+environment  = "dev"
+
+# Network Configuration
+network_prefix     = "10.10"
+dmz_subnet         = "10.10.1.0/24"
+internal_subnet    = "10.10.2.0/24"
+management_subnet  = "10.10.3.0/24"
+secure_subnet      = "10.10.4.0/24"
+
+# Docker Configuration (if using Docker Desktop)
+docker_host = "unix:///var/run/docker.sock"
+
+# VMware Configuration (if using VMware Fusion/Workstation)
+vmware_url      = "http://localhost:8697/api"
+vmware_user     = "admin"
+vmware_password = "your-password-here"
+
+# VM Resource Defaults
+vm_memory    = 4096  # MB
+vm_cpus      = 2
+vm_disk_size = 40    # GB
+
+# Wazuh Configuration
+wazuh_version = "4.8.2"
+
+# WireGuard Configuration
+wireguard_port  = 51820
+wireguard_peers = 5
+
+# Service Ports
+nginx_http_port           = 80
+nginx_https_port          = 443
+wazuh_api_port            = 55000
+wazuh_registration_port   = 1514
+wazuh_cluster_port        = 1516
+
+# ISO Configuration (for VM installations)
+iso_path       = "./iso"
+default_os_iso = "ubuntu-22.04-server-amd64.iso"
+
+# Additional VMs (beyond Docker services)
+# Uncomment and customize as needed
+# additional_vms = [
+#   {
+#     name      = "kali-linux"
+#     memory    = 4096
+#     cpus      = 2
+#     disk_size = 60
+#     network   = "management"
+#     os_iso    = "kali-linux-2024.iso"
+#   },
+#   {
+#     name      = "windows-client"
+#     memory    = 8192
+#     cpus      = 4
+#     disk_size = 80
+#     network   = "internal"
+#     os_iso    = "windows-server-2022.iso"
+#   }
+# ]
+
+# Debug Mode
+debug_mode = false
+
+# ============================================================================
+# ARCHITECTURE DEPLOYMENT (from docs/ARCHITECTURE.md)
+# ============================================================================
+# Set to true to deploy the full 5-network defense-in-depth architecture
+# with OPNsense firewall
+
+deploy_architecture = false  # Set to true to enable
+deploy_opnsense     = false  # Set to true to deploy OPNsense firewall
+
+# Architecture Network Configuration
+# These networks implement the defense-in-depth topology from docs/ARCHITECTURE.md
+# DO NOT change these unless you understand the full architecture
+
+arch_external_subnet   = "172.25.0.0/24"   # External/VPN network
+arch_dmz_subnet        = "172.25.10.0/24"  # DMZ (NGINX, T-Pot)
+arch_internal_subnet   = "172.25.20.0/24"  # Internal (DB, LDAP, Apps)
+arch_security_subnet   = "172.25.30.0/24"  # Security (Wazuh, ELK, SIEM)
+arch_management_subnet = "172.25.40.0/24"  # Management (Grafana, Admin)
+
+# OPNsense Firewall Configuration
+opnsense_cpus   = 2      # CPU cores for OPNsense VM
+opnsense_memory = 2048   # Memory in MB (2GB minimum)
+opnsense_iso    = "OPNsense-24.1-dvd-amd64.iso"
+
+# Download OPNsense ISO using: ./scripts/download-opnsense.sh
+# Or manually from: https://opnsense.org/download/
+
+# ============================================================================
+# ARCHITECTURE QUICK START
+# ============================================================================
+# To deploy the full architecture:
+#
+# 1. Download OPNsense ISO:
+#    cd scripts && ./download-opnsense.sh
+#
+# 2. Enable architecture:
+#    deploy_architecture = true
+#    deploy_opnsense = true
+#    hypervisor = "virtualbox"
+#
+# 3. Deploy:
+#    terraform init
+#    terraform apply
+#
+# 4. Access OPNsense:
+#    https://172.25.40.1
+#    Username: root
+#    Password: opnsense (CHANGE IMMEDIATELY!)
+#
+# See OPNSENSE_SETUP.md for complete configuration guide
